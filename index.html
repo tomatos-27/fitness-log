@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#171914" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Fitness Log" />
+    <meta name="description" content="本地优先、离线可用的饮食与训练记录工具。" />
+    <title>Fitness Log</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-180.png" />
+    <link rel="stylesheet" href="./styles.css?v=0.1.2-4" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="side-rail" aria-label="应用导航">
+        <a class="brand" href="#log" aria-label="Fitness Log 首页">
+          <span class="brand-mark" aria-hidden="true">FL</span>
+          <span><strong>FITNESS</strong><small>LOG / V0.1.2</small></span>
+        </a>
+        <nav class="nav-list">
+          <button class="nav-item is-active" type="button" data-view-target="log"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6zM9 10h6M9 14h6M9 18h4M14 3v4h4" /></svg><span>记录</span></button>
+          <button class="nav-item" type="button" data-view-target="summary"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg><span>7 天</span></button>
+          <button class="nav-item" type="button" data-view-target="backup"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 19h14" /></svg><span>备份</span></button>
+        </nav>
+        <p class="local-note"><span></span> 数据仅存于此设备</p>
+      </aside>
+
+      <main>
+        <section class="view is-active" id="view-log" data-view="log" aria-labelledby="log-title">
+          <header class="page-header log-header">
+            <div><p class="eyebrow" id="date-eyebrow">今天</p><h1 id="log-title">日常记录</h1></div>
+            <button class="calendar-entry-button" id="open-calendar" type="button" aria-label="打开全部记录月历"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M7 3v3m10-3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Z" /></svg><span>全部 / 日历</span></button>
+          </header>
+          <div class="date-switcher" aria-label="选择记录日期">
+            <button class="date-arrow" id="previous-day" type="button" aria-label="前一天">←</button>
+            <button class="date-display" id="open-date-picker" type="button"><strong id="selected-date-label"></strong><span id="selected-weekday"></span></button>
+            <input class="visually-hidden" id="date-picker" type="date" aria-label="选择日期" />
+            <button class="date-arrow" id="next-day" type="button" aria-label="后一天">→</button>
+          </div>
+          <div class="metric-grid" id="day-metrics" aria-label="当日汇总"></div>
+
+          <section class="log-section" aria-labelledby="food-heading">
+            <div class="section-heading"><div><p class="section-kicker">FUEL</p><h2 id="food-heading">饮食</h2></div><button class="add-button" id="add-food" type="button"><span>＋</span> 记录饮食</button></div>
+            <div id="food-list"></div>
+          </section>
+
+          <section class="log-section" aria-labelledby="training-heading">
+            <div class="section-heading"><div><p class="section-kicker">MOVE</p><h2 id="training-heading">训练</h2></div><button class="add-button" id="add-session" type="button"><span>＋</span> 记录训练</button></div>
+            <div id="session-list"></div>
+          </section>
+        </section>
+
+        <section class="view" id="view-calendar" data-view="calendar" aria-labelledby="calendar-title" hidden>
+          <header class="page-header calendar-header"><div><p class="eyebrow">全部记录</p><h1 id="calendar-title">训练月历</h1></div><button class="calendar-back-button" type="button" data-view-target="log">返回记录</button></header>
+          <section class="calendar-card" aria-label="记录月历">
+            <div class="calendar-toolbar"><button id="calendar-previous-month" type="button" aria-label="上一个月">←</button><strong id="calendar-month-label"></strong><button id="calendar-next-month" type="button" aria-label="下一个月">→</button></div>
+            <div class="calendar-weekdays" aria-hidden="true"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+            <div class="calendar-grid" id="calendar-grid"></div>
+            <div class="calendar-legend"><span><i class="calendar-dot training"></i>训练</span><span><i class="calendar-dot food"></i>饮食</span></div>
+          </section>
+          <p class="calendar-help">点击日期即可进入当天的日常记录。</p>
+        </section>
+
+        <section class="view" id="view-summary" data-view="summary" aria-labelledby="summary-title" hidden>
+          <header class="page-header"><div><p class="eyebrow">最近 7 天</p><h1 id="summary-title">保持节奏</h1></div><div class="range-badge" id="summary-range"></div></header>
+          <div class="summary-grid" id="summary-metrics"></div>
+          <section class="chart-card" aria-labelledby="chart-title">
+            <div class="chart-header"><div><p class="section-kicker">TREND</p><h2 id="chart-title">每日趋势</h2></div><div class="segmented" aria-label="选择图表指标"><button class="is-active" type="button" data-chart-metric="calories">热量</button><button type="button" data-chart-metric="protein">蛋白质</button><button type="button" data-chart-metric="duration">训练</button></div></div>
+            <div class="bar-chart" id="bar-chart" aria-label="最近 7 天趋势图"></div><p class="chart-note" id="chart-note"></p>
+          </section>
+          <section class="log-section history-section" aria-labelledby="exercise-history-heading">
+            <div class="section-heading history-heading"><div><p class="section-kicker">PROGRESS</p><h2 id="exercise-history-heading">动作历史</h2></div><label class="compact-select"><span class="visually-hidden">选择动作</span><select id="exercise-history-select" aria-label="选择动作"></select></label></div>
+            <div id="exercise-history"></div>
+          </section>
+          <section class="log-section" aria-labelledby="recent-heading"><div class="section-heading"><div><p class="section-kicker">RECAP</p><h2 id="recent-heading">逐日回顾</h2></div></div><div class="recap-list" id="recap-list"></div></section>
+        </section>
+
+        <section class="view" id="view-backup" data-view="backup" aria-labelledby="backup-title" hidden>
+          <header class="page-header"><div><p class="eyebrow">本地优先</p><h1 id="backup-title">数据与备份</h1></div></header>
+          <section class="data-hero"><div class="data-hero-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 19h14" /></svg></div><div><h2>你的数据，只在这里</h2><p>记录保存在当前设备的浏览器。iPhone 与 Mac 的数据彼此独立，请定期导出 JSON。</p></div></section>
+          <div class="backup-grid">
+            <section class="action-card"><span class="step-number">01</span><h2>导出备份</h2><p id="data-footprint">正在统计本地记录…</p><button class="primary-button" id="export-data" type="button">下载 JSON 备份</button></section>
+            <section class="action-card"><span class="step-number">02</span><h2>导入备份</h2><p>默认合并，不覆盖当前已有记录；也可以选择完全替换。</p><div class="import-mode" role="radiogroup" aria-label="导入方式"><label><input type="radio" name="import-mode" value="merge" checked /> 合并</label><label><input type="radio" name="import-mode" value="replace" /> 替换</label></div><label class="secondary-button file-button">选择 JSON 文件<input id="import-data" type="file" accept="application/json,.json" /></label></section>
+          </div>
+          <section class="install-card" id="install-card"><div><p class="section-kicker">PWA</p><h2>添加到主屏幕</h2><p id="install-copy">iPhone Safari：点击分享按钮，再选择“添加到主屏幕”。</p></div><button class="add-button" id="install-app" type="button" hidden>安装</button></section>
+          <details class="details-card"><summary>V0.1.2 数据说明</summary><p>训练详情默认只读，只有主动点击“编辑训练”才会进入表单。喝水与咖啡按日期独立保存，默认喝水目标为 2000ml。正式动作仍通过稳定的动作库 ID 关联历史；旧 V0.1 / V0.1.1 数据和备份会自动迁移。</p></details>
+        </section>
+      </main>
+
+      <nav class="bottom-nav" aria-label="应用导航">
+        <button class="nav-item is-active" type="button" data-view-target="log"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6zM9 10h6M9 14h6M9 18h4M14 3v4h4" /></svg><span>记录</span></button>
+        <button class="nav-item" type="button" data-view-target="summary"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg><span>7 天</span></button>
+        <button class="nav-item" type="button" data-view-target="backup"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 19h14" /></svg><span>备份</span></button>
+      </nav>
+    </div>
+
+    <dialog class="entry-dialog" id="food-dialog">
+      <form id="food-form" method="dialog">
+        <div class="dialog-handle" aria-hidden="true"></div>
+        <div class="dialog-header"><div><p class="section-kicker">FUEL</p><h2 id="food-dialog-title">记录饮食</h2></div><button class="close-button" type="button" data-close-dialog aria-label="关闭">×</button></div>
+        <input id="food-id" type="hidden" />
+        <div class="field-grid two-columns"><label class="field"><span>日期</span><input id="food-date" type="date" required /></label><label class="field"><span>时间</span><input id="food-time" type="time" required /></label></div>
+        <label class="field"><span>餐次</span><select id="food-meal" required><option value="breakfast">早餐</option><option value="lunch">午餐</option><option value="dinner">晚餐</option><option value="snack">加餐</option></select></label>
+        <label class="field"><span>吃了什么 <em>必填</em></span><input id="food-name" type="text" required maxlength="80" placeholder="例如：鸡胸肉饭" autocomplete="off" /></label>
+        <label class="field"><span>份量</span><input id="food-portion" type="text" maxlength="40" placeholder="例如：1 碗 / 250g" autocomplete="off" /></label>
+        <div class="field-grid two-columns"><label class="field"><span>热量 kcal <em>选填</em></span><input id="food-calories" type="number" min="0" max="20000" step="1" inputmode="decimal" placeholder="—" /></label><label class="field"><span>蛋白质 g <em>选填</em></span><input id="food-protein" type="number" min="0" max="1000" step="0.1" inputmode="decimal" placeholder="—" /></label></div>
+        <label class="field"><span>备注</span><textarea id="food-note" rows="2" maxlength="200" placeholder="可选"></textarea></label>
+        <div class="dialog-actions"><button class="delete-button" id="delete-food" type="button" hidden>删除</button><button class="primary-button" type="submit">保存饮食</button></div>
+      </form>
+    </dialog>
+
+    <dialog class="entry-dialog session-dialog" id="session-dialog">
+      <form id="session-form" method="dialog">
+        <div class="dialog-handle" aria-hidden="true"></div>
+        <div class="dialog-header"><div><p class="section-kicker">MOVE</p><h2 id="session-dialog-title">记录训练</h2></div><button class="close-button" type="button" data-close-dialog aria-label="关闭">×</button></div>
+        <input id="session-id" type="hidden" />
+        <div class="field-grid three-columns session-meta"><label class="field"><span>日期</span><input id="session-date" type="date" required /></label><label class="field"><span>开始时间</span><input id="session-start-time" type="time" required /></label><label class="field"><span>总时长 min <em>选填</em></span><input id="session-duration" type="number" min="0" max="1440" step="1" inputmode="numeric" placeholder="—" /></label></div>
+        <details class="form-section" open><summary><span><small>WARM UP</small>热身</span><b id="warmup-count">0 个动作</b></summary><div class="form-section-body"><div id="warmup-editor-list" class="editor-list"></div><button class="inline-add" id="add-warmup" type="button">＋ 添加热身动作</button></div></details>
+        <details class="form-section" open><summary><span><small>WORK SETS</small>正式训练</span><b id="exercise-count">0 个动作</b></summary><div class="form-section-body"><div id="exercise-editor-list" class="editor-list"></div><button class="inline-add inline-add-strong" id="add-exercise" type="button">＋ 添加正式动作</button></div></details>
+        <label class="field session-note"><span>整体训练备注</span><textarea id="session-note" rows="2" maxlength="500" placeholder="这次训练的整体感受、状态等"></textarea></label>
+        <div class="dialog-actions sticky-actions"><button class="delete-button" id="delete-session" type="button" hidden>删除</button><button class="primary-button" type="submit">保存训练</button></div>
+      </form>
+    </dialog>
+
+    <dialog class="entry-dialog detail-dialog" id="session-detail-dialog" aria-labelledby="session-detail-title">
+      <div class="dialog-content">
+        <div class="dialog-handle" aria-hidden="true"></div>
+        <div class="dialog-header"><div><p class="section-kicker">MOVE</p><h2 id="session-detail-title">训练详情</h2></div><button class="close-button" type="button" data-close-dialog aria-label="关闭">×</button></div>
+        <div id="session-detail-content"></div>
+        <div class="dialog-actions detail-actions"><button class="primary-button" id="edit-session-from-detail" type="button">编辑训练</button></div>
+      </div>
+    </dialog>
+
+    <dialog class="entry-dialog quick-dialog" id="hydration-dialog" aria-labelledby="hydration-dialog-title">
+      <div class="dialog-content">
+        <div class="dialog-handle" aria-hidden="true"></div>
+        <div class="dialog-header"><div><p class="section-kicker">HYDRATE</p><h2 id="hydration-dialog-title">喝水</h2><p class="dialog-date" id="hydration-date"></p></div><button class="close-button" type="button" data-close-dialog aria-label="关闭">×</button></div>
+        <section class="hydration-progress" id="hydration-progress" aria-live="polite">
+          <div class="capybara-progress-visual" aria-hidden="true">
+            <svg class="capybara-progress-svg" viewBox="0 0 340 330" focusable="false">
+              <defs>
+                <path id="capybara-body-shape" d="M170 34C184 34 198 37 210 43C216 29 228 22 241 24C257 26 266 40 263 56C262 65 257 72 251 78C270 100 279 128 282 160C286 199 279 239 266 269C258 287 244 296 225 298C207 300 189 301 170 301C151 301 133 300 115 298C96 296 82 287 74 269C61 239 54 199 58 160C61 128 70 100 89 78C83 72 78 65 77 56C74 40 83 26 99 24C112 22 124 29 130 43C142 37 156 34 170 34Z" />
+                <path id="capybara-left-hand" d="M77 267C63 264 49 271 47 285C48 298 68 305 88 297L100 283C95 273 87 268 77 267Z" />
+                <path id="capybara-right-hand" d="M263 267C277 264 291 271 293 285C292 298 272 305 252 297L240 283C245 273 253 268 263 267Z" />
+                <path id="capybara-left-foot" d="M120 278C132 270 148 272 155 282L158 303C152 313 124 314 117 303Z" />
+                <path id="capybara-right-foot" d="M220 278C208 270 192 272 185 282L182 303C188 313 216 314 223 303Z" />
+                <clipPath id="capybara-fill-clip">
+                  <use href="#capybara-body-shape" />
+                  <use href="#capybara-left-hand" />
+                  <use href="#capybara-right-hand" />
+                  <use href="#capybara-left-foot" />
+                  <use href="#capybara-right-foot" />
+                </clipPath>
+                <linearGradient id="capybara-fill-color" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#d7a774" />
+                  <stop offset="1" stop-color="#bd875d" />
+                </linearGradient>
+              </defs>
+
+              <g class="capybara-empty-shape">
+                <use href="#capybara-body-shape" />
+                <use href="#capybara-left-hand" />
+                <use href="#capybara-right-hand" />
+                <use href="#capybara-left-foot" />
+                <use href="#capybara-right-foot" />
+              </g>
+              <g clip-path="url(#capybara-fill-clip)">
+                <rect class="capybara-fill-layer" x="42" y="18" width="256" height="296" fill="url(#capybara-fill-color)" />
+              </g>
+
+              <g class="capybara-outline-shape">
+                <use href="#capybara-body-shape" />
+                <use href="#capybara-left-hand" />
+                <use href="#capybara-right-hand" />
+                <use href="#capybara-left-foot" />
+                <use href="#capybara-right-foot" />
+              </g>
+
+              <ellipse class="capybara-inner-ear" cx="102" cy="50" rx="16" ry="18" transform="rotate(-28 102 50)" />
+              <ellipse class="capybara-inner-ear" cx="238" cy="50" rx="16" ry="18" transform="rotate(28 238 50)" />
+              <path class="capybara-ear-mark" d="M96 46L106 56M244 46L234 56" />
+              <rect class="capybara-eye" x="111" y="88" width="38" height="12" rx="6" />
+              <rect class="capybara-eye" x="191" y="88" width="38" height="12" rx="6" />
+              <ellipse class="capybara-cheek" cx="101" cy="127" rx="32" ry="21" />
+              <ellipse class="capybara-cheek" cx="239" cy="127" rx="32" ry="21" />
+              <path class="capybara-cheek-mark" d="M91 123L86 132M106 121L101 133M249 123L254 132M234 121L239 133" />
+              <rect class="capybara-muzzle" x="137" y="82" width="66" height="86" rx="33" />
+              <circle class="capybara-nostril" cx="158" cy="105" r="6" />
+              <circle class="capybara-nostril" cx="182" cy="105" r="6" />
+              <path class="capybara-mouth" d="M170 115V145M170 144L158 156M170 144L182 156" />
+              <path class="capybara-fur-mark" d="M83 196L78 205M91 193L87 205M257 196L262 205" />
+              <path class="capybara-paw-mark" d="M69 287L76 281L83 288M271 287L264 281L257 288M137 301V294M203 301V294" />
+              <g class="capybara-complete-sparkles">
+                <path d="M47 68V84M39 76H55M293 68V84M285 76H301" />
+                <circle cx="60" cy="54" r="3" />
+                <circle cx="280" cy="54" r="3" />
+              </g>
+            </svg>
+          </div>
+          <div class="hydration-progress-copy"><strong id="hydration-total"></strong><span id="hydration-percent"></span></div>
+        </section>
+        <label class="field quick-time-field"><span>记录时间</span><input id="hydration-time" type="time" required /></label>
+        <div class="quick-add-grid" aria-label="快速记录喝水"><button type="button" data-add-water="200">＋200 ml</button><button type="button" data-add-water="250">＋250 ml</button><button type="button" data-add-water="500">＋500 ml</button></div>
+        <form class="custom-add-row" id="hydration-form"><label class="field"><span>自定义 ml</span><input id="hydration-custom-ml" type="number" min="1" max="10000" step="1" inputmode="numeric" placeholder="例如 350" required /></label><button class="secondary-button" type="submit">记录</button></form>
+        <section class="quick-records" aria-labelledby="hydration-records-title"><div class="quick-records-heading"><h3 id="hydration-records-title">当日记录</h3><span id="hydration-record-count"></span></div><div id="hydration-record-list"></div></section>
+      </div>
+    </dialog>
+
+    <dialog class="entry-dialog quick-dialog" id="coffee-dialog" aria-labelledby="coffee-dialog-title">
+      <div class="dialog-content">
+        <div class="dialog-handle" aria-hidden="true"></div>
+        <div class="dialog-header"><div><p class="section-kicker">COFFEE</p><h2 id="coffee-dialog-title">咖啡</h2><p class="dialog-date" id="coffee-date"></p></div><button class="close-button" type="button" data-close-dialog aria-label="关闭">×</button></div>
+        <div class="coffee-count"><strong id="coffee-count"></strong><span>今日咖啡</span></div>
+        <form id="coffee-form">
+          <div class="field-grid two-columns"><label class="field"><span>时间</span><input id="coffee-time" type="time" required /></label><label class="field"><span>咖啡类型</span><select id="coffee-type" required><option value="americano">美式</option><option value="latte">拿铁</option><option value="coldBrew">冷萃</option><option value="flatWhite">澳白</option><option value="other">其他</option></select></label></div>
+          <label class="field"><span>容量 <em>选填</em></span><select id="coffee-capacity"><option value="">不记录</option><option value="250">250 ml</option><option value="350">350 ml</option><option value="500">500 ml</option><option value="custom">自定义</option></select></label>
+          <label class="field" id="coffee-custom-field" hidden><span>自定义容量 ml</span><input id="coffee-custom-capacity" type="number" min="1" max="2000" step="1" inputmode="numeric" placeholder="例如 300" /></label>
+          <button class="primary-button coffee-submit" type="submit">＋ 记录一杯</button>
+        </form>
+        <section class="quick-records" aria-labelledby="coffee-records-title"><div class="quick-records-heading"><h3 id="coffee-records-title">当日记录</h3><span id="coffee-record-count"></span></div><div id="coffee-record-list"></div></section>
+      </div>
+    </dialog>
+
+    <datalist id="exercise-name-options"></datalist>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="./app.js?v=0.1.2-4"></script>
+  </body>
+</html>

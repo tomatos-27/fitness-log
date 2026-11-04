@@ -1,0 +1,35 @@
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Netlify local state and generated output
+.netlify/
+dist/
+
+# Fitness Log private exports and backups
+fitness-log-backup-*.json
+*fitness-log*backup*.json
+backup-*.json
+export-*.json
+*.backup.json
+*.export.json
+backups/
+exports/
+
+# Logs and temporary caches
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+.cache/
+.tmp/
+tmp/
+coverage/
+node_modules/
