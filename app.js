@@ -23,7 +23,7 @@ import {
   exerciseKey,
   maxWeight,
   makeId
-} from "./data.js?v=0.1.2-5";
+} from "./data.js?v=0.1.2-6";
 
 const STORAGE_KEY = "fitness-log.data.v1";
 const PRE_IMPORT_KEY = "fitness-log.data.v1.pre-import";
@@ -350,26 +350,10 @@ function roundedCanvasRect(context, x, y, width, height, radius) {
   context.closePath();
 }
 
-function warmupShareLabel(item) {
-  const amount = item.mode === "duration"
-    ? (item.durationMin != null ? `${compactNumber(item.durationMin)} min` : "")
-    : (item.reps != null ? `${compactNumber(item.reps)} 次` : "");
-  return [item.name, amount, item.note].filter(Boolean).join(" · ");
-}
-
 function buildSessionShareBlocks(session, format, context) {
   const blocks = [];
   const contentWidth = SHARE_STYLE.width - (SHARE_STYLE.padding * 2);
   const addSection = (kicker, title) => blocks.push({ type: "section", kicker, title, height: 72 });
-
-  if (format === "detailed" && session.warmups.length) {
-    addSection("WARM UP", "热身");
-    session.warmups.forEach(item => {
-      setCanvasFont(context, 24, 650);
-      const lines = wrapCanvasText(context, warmupShareLabel(item), contentWidth - 54);
-      blocks.push({ type: "warmup", lines, height: 34 + (lines.length * 34) });
-    });
-  }
 
   addSection("WORK SETS", "正式训练");
   if (!session.exercises.length) {
@@ -389,10 +373,19 @@ function buildSessionShareBlocks(session, format, context) {
       height: 34 + (nameLines.length * 39) + 12 + (setLines.length * 34) + 30
     };
     if (format === "detailed") {
-      if (exercise.cues) {
-        setCanvasFont(context, 22, 500);
-        block.cueLines = wrapCanvasText(context, exercise.cues, contentWidth - 60);
-        block.height += 48 + (block.cueLines.length * 31);
+      const previous = findExerciseHistory(data, exercise.name, {
+        exerciseId: exercise.exerciseId || undefined,
+        excludeSessionId: session.id,
+        beforeDate: session.date,
+        beforeTime: session.startTime || "23:59"
+      })[0];
+      if (previous) {
+        setCanvasFont(context, 22, 600);
+        block.previousLabel = `上次 · ${formatShortDate(previous.date)}`;
+        block.previousLines = wrapCanvasText(context, previous.exercise.sets.length
+          ? previous.exercise.sets.map(set => setLabel(set)).join(" · ")
+          : "未记录组数据", contentWidth - 60);
+        block.height += 48 + (block.previousLines.length * 31);
       }
       if (exercise.coachCorrection) {
         setCanvasFont(context, 22, 500);
@@ -505,13 +498,6 @@ function drawSessionShareBlock(context, block, y, format) {
   context.stroke();
   const innerX = padding + 27;
 
-  if (block.type === "warmup") {
-    context.fillStyle = ink;
-    setCanvasFont(context, 24, 650);
-    drawCanvasLines(context, block.lines, innerX, y + 22, 34);
-    return;
-  }
-
   if (block.type === "sessionNote") {
     context.fillStyle = green;
     setCanvasFont(context, 17, 850);
@@ -540,7 +526,7 @@ function drawSessionShareBlock(context, block, y, format) {
   drawCanvasLines(context, block.setLines, innerX, cursorY, 34);
   cursorY += (block.setLines.length * 34) + 20;
 
-  if (block.cueLines) {
+  if (block.previousLines) {
     context.strokeStyle = line;
     context.beginPath();
     context.moveTo(innerX, cursorY - 2);
@@ -548,11 +534,11 @@ function drawSessionShareBlock(context, block, y, format) {
     context.stroke();
     context.fillStyle = green;
     setCanvasFont(context, 16, 850);
-    context.fillText("动作要点", innerX, cursorY + 15);
+    context.fillText(block.previousLabel, innerX, cursorY + 15);
     context.fillStyle = muted;
-    setCanvasFont(context, 22, 500);
-    drawCanvasLines(context, block.cueLines, innerX, cursorY + 44, 31);
-    cursorY += 48 + (block.cueLines.length * 31);
+    setCanvasFont(context, 22, 600);
+    drawCanvasLines(context, block.previousLines, innerX, cursorY + 44, 31);
+    cursorY += 48 + (block.previousLines.length * 31);
   }
   if (block.correctionLines) {
     context.strokeStyle = line;
