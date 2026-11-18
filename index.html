@@ -12,7 +12,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-180.png" />
-    <link rel="stylesheet" href="./styles.css?v=0.1.2-4" />
+    <link rel="stylesheet" href="./styles.css?v=0.1.2-5" />
   </head>
   <body>
     <div class="app-shell">
@@ -129,9 +129,25 @@
     <dialog class="entry-dialog detail-dialog" id="session-detail-dialog" aria-labelledby="session-detail-title">
       <div class="dialog-content">
         <div class="dialog-handle" aria-hidden="true"></div>
-        <div class="dialog-header"><div><p class="section-kicker">MOVE</p><h2 id="session-detail-title">训练详情</h2></div><button class="close-button" type="button" data-close-dialog aria-label="关闭">×</button></div>
+        <div class="dialog-header"><div><p class="section-kicker">MOVE</p><h2 id="session-detail-title">训练详情</h2></div><div class="dialog-header-actions"><button class="share-detail-button" id="share-session-from-detail" type="button" aria-label="生成训练分享图片"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 16V4m0 0 4 4m-4-4L8 8M5 12v7h14v-7" /></svg><span>分享</span></button><button class="close-button" type="button" data-close-dialog aria-label="关闭">×</button></div></div>
         <div id="session-detail-content"></div>
         <div class="dialog-actions detail-actions"><button class="primary-button" id="edit-session-from-detail" type="button">编辑训练</button></div>
+      </div>
+    </dialog>
+
+    <dialog class="entry-dialog share-dialog" id="session-share-dialog" aria-labelledby="session-share-title">
+      <div class="dialog-content">
+        <div class="dialog-handle" aria-hidden="true"></div>
+        <div class="dialog-header"><div><p class="section-kicker">SHARE</p><h2 id="session-share-title">生成训练图片</h2></div><button class="close-button" type="button" data-close-dialog aria-label="关闭">×</button></div>
+        <p class="share-intro">选择一种样式预览，生成过程仅在当前设备完成。</p>
+        <div class="share-format-options" role="radiogroup" aria-label="选择分享图片样式">
+          <button class="share-format-card is-active" type="button" data-share-format="detailed" role="radio" aria-checked="true"><strong>详细版</strong><span>热身、动作、要点与纠正</span></button>
+          <button class="share-format-card" type="button" data-share-format="compact" role="radio" aria-checked="false"><strong>简版</strong><span>正式动作、重量与次数</span></button>
+          <button class="share-format-card" type="button" data-share-format="text" role="radio" aria-checked="false"><strong>纯文字</strong><span>极简文字排版</span></button>
+        </div>
+        <div class="share-preview-shell" aria-live="polite"><canvas id="session-share-canvas" aria-label="训练分享图片预览"></canvas></div>
+        <p class="share-save-help" id="share-save-help">iPhone 会打开系统分享面板，可保存到照片或文件。</p>
+        <div class="dialog-actions share-actions"><button class="primary-button" id="save-session-share" type="button" disabled>正在生成…</button></div>
       </div>
     </dialog>
 
@@ -227,6 +243,6 @@
 
     <datalist id="exercise-name-options"></datalist>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="./app.js?v=0.1.2-4"></script>
+    <script type="module" src="./app.js?v=0.1.2-5"></script>
   </body>
 </html>

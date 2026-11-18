@@ -23,7 +23,7 @@ import {
   exerciseKey,
   maxWeight,
   makeId
-} from "./data.js?v=0.1.2-4";
+} from "./data.js?v=0.1.2-5";
 
 const STORAGE_KEY = "fitness-log.data.v1";
 const PRE_IMPORT_KEY = "fitness-log.data.v1.pre-import";
@@ -39,6 +39,10 @@ let chartMetric = "calories";
 let selectedHistoryExercise = "";
 let toastTimer;
 let deferredInstallPrompt;
+let shareSessionId = "";
+let shareFormat = "detailed";
+let shareImageBlob = null;
+let shareRenderToken = 0;
 
 const $ = (selector, scope = document) => scope.querySelector(selector);
 const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
@@ -272,7 +276,393 @@ function openSessionDetail(sessionOrId) {
     ${warmups}${exercises}
     ${session.note ? `<section class="session-overall-note"><b>整体训练备注</b><p>${escapeHTML(session.note)}</p></section>` : ""}`;
   $('#edit-session-from-detail').dataset.sessionId = session.id;
+  $('#share-session-from-detail').dataset.sessionId = session.id;
   $('#session-detail-dialog').showModal();
+}
+
+const SHARE_STYLE = {
+  width: 900,
+  padding: 56,
+  ink: "#171914",
+  muted: "#686b61",
+  paper: "#f4f2eb",
+  card: "#fffef9",
+  line: "#dcd9cf",
+  accent: "#c7f36b",
+  green: "#718f35",
+  orange: "#a05f2d"
+};
+
+const shareFormatLabels = {
+  detailed: "详细版",
+  compact: "简版",
+  text: "纯文字版"
+};
+
+function canvasFont(size, weight = 400) {
+  return `${weight} ${size}px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif`;
+}
+
+function setCanvasFont(context, size, weight = 400) {
+  context.font = canvasFont(size, weight);
+  context.textBaseline = "top";
+}
+
+function wrapCanvasText(context, value, maxWidth) {
+  const paragraphs = String(value || "").replace(/\r/g, "").split("\n");
+  const lines = [];
+  paragraphs.forEach(paragraph => {
+    if (!paragraph) {
+      lines.push("");
+      return;
+    }
+    let line = "";
+    for (const character of [...paragraph]) {
+      const candidate = line + character;
+      if (line && context.measureText(candidate).width > maxWidth) {
+        lines.push(line.trimEnd());
+        line = character.trimStart();
+      } else {
+        line = candidate;
+      }
+    }
+    if (line) lines.push(line.trimEnd());
+  });
+  return lines.length ? lines : [""];
+}
+
+function drawCanvasLines(context, lines, x, y, lineHeight) {
+  lines.forEach((line, index) => context.fillText(line, x, y + (index * lineHeight)));
+}
+
+function roundedCanvasRect(context, x, y, width, height, radius) {
+  const safeRadius = Math.min(radius, width / 2, height / 2);
+  context.beginPath();
+  context.moveTo(x + safeRadius, y);
+  context.lineTo(x + width - safeRadius, y);
+  context.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+  context.lineTo(x + width, y + height - safeRadius);
+  context.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+  context.lineTo(x + safeRadius, y + height);
+  context.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+  context.lineTo(x, y + safeRadius);
+  context.quadraticCurveTo(x, y, x + safeRadius, y);
+  context.closePath();
+}
+
+function warmupShareLabel(item) {
+  const amount = item.mode === "duration"
+    ? (item.durationMin != null ? `${compactNumber(item.durationMin)} min` : "")
+    : (item.reps != null ? `${compactNumber(item.reps)} 次` : "");
+  return [item.name, amount, item.note].filter(Boolean).join(" · ");
+}
+
+function buildSessionShareBlocks(session, format, context) {
+  const blocks = [];
+  const contentWidth = SHARE_STYLE.width - (SHARE_STYLE.padding * 2);
+  const addSection = (kicker, title) => blocks.push({ type: "section", kicker, title, height: 72 });
+
+  if (format === "detailed" && session.warmups.length) {
+    addSection("WARM UP", "热身");
+    session.warmups.forEach(item => {
+      setCanvasFont(context, 24, 650);
+      const lines = wrapCanvasText(context, warmupShareLabel(item), contentWidth - 54);
+      blocks.push({ type: "warmup", lines, height: 34 + (lines.length * 34) });
+    });
+  }
+
+  addSection("WORK SETS", "正式训练");
+  if (!session.exercises.length) {
+    blocks.push({ type: "empty", height: 92 });
+  }
+
+  session.exercises.forEach((exercise, index) => {
+    setCanvasFont(context, format === "text" ? 27 : 30, 800);
+    const nameLines = wrapCanvasText(context, `${format === "text" ? `${index + 1}. ` : ""}${exercise.name}`, contentWidth - (format === "text" ? 0 : 190));
+    setCanvasFont(context, 24, format === "text" ? 500 : 700);
+    const setLines = wrapCanvasText(context, exercise.sets.length ? exercise.sets.map(set => setLabel(set)).join(" · ") : "未记录组数据", contentWidth - (format === "text" ? 0 : 60));
+    const block = {
+      type: format === "text" ? "textExercise" : "exercise",
+      nameLines,
+      setLines,
+      setCount: exercise.sets.length,
+      height: 34 + (nameLines.length * 39) + 12 + (setLines.length * 34) + 30
+    };
+    if (format === "detailed") {
+      if (exercise.cues) {
+        setCanvasFont(context, 22, 500);
+        block.cueLines = wrapCanvasText(context, exercise.cues, contentWidth - 60);
+        block.height += 48 + (block.cueLines.length * 31);
+      }
+      if (exercise.coachCorrection) {
+        setCanvasFont(context, 22, 500);
+        block.correctionLines = wrapCanvasText(context, exercise.coachCorrection, contentWidth - 60);
+        block.height += 48 + (block.correctionLines.length * 31);
+      }
+    }
+    blocks.push(block);
+  });
+
+  if (format === "detailed" && session.note) {
+    setCanvasFont(context, 22, 500);
+    const lines = wrapCanvasText(context, session.note, contentWidth - 54);
+    blocks.push({ type: "sessionNote", lines, height: 78 + (lines.length * 31) });
+  }
+  return blocks;
+}
+
+function drawSessionShareHeader(context, session, format) {
+  const { width, padding, ink, muted, card, accent } = SHARE_STYLE;
+  const setCount = session.exercises.reduce((sum, exercise) => sum + exercise.sets.length, 0);
+  const duration = session.durationMin != null ? `${compactNumber(session.durationMin)} min` : "未记录时长";
+  const summary = `${session.exercises.length} 个动作 · ${setCount} 组 · ${duration}`;
+  const dateLine = `${formatShortDate(session.date)} · ${weekdays[parseDate(session.date).getDay()]} · ${session.startTime || "未记录时间"}`;
+
+  if (format === "text") {
+    context.fillStyle = ink;
+    setCanvasFont(context, 19, 800);
+    context.fillText("FITNESS LOG", padding, 56);
+    setCanvasFont(context, 48, 850);
+    context.fillText("训练记录", padding, 92);
+    context.fillStyle = accent;
+    context.fillRect(padding, 157, 92, 8);
+    context.fillStyle = ink;
+    setCanvasFont(context, 25, 700);
+    context.fillText(dateLine, padding, 192);
+    context.fillStyle = muted;
+    setCanvasFont(context, 22, 500);
+    context.fillText(summary, padding, 231);
+    return 298;
+  }
+
+  const heroX = 40;
+  const heroY = 40;
+  const heroWidth = width - 80;
+  const heroHeight = 210;
+  context.fillStyle = ink;
+  roundedCanvasRect(context, heroX, heroY, heroWidth, heroHeight, 34);
+  context.fill();
+  context.fillStyle = accent;
+  setCanvasFont(context, 18, 850);
+  context.fillText("FITNESS LOG / TRAINING", heroX + 36, heroY + 33);
+  const badgeText = shareFormatLabels[format];
+  setCanvasFont(context, 18, 800);
+  const badgeWidth = context.measureText(badgeText).width + 34;
+  roundedCanvasRect(context, heroX + heroWidth - badgeWidth - 30, heroY + 25, badgeWidth, 42, 21);
+  context.fillStyle = accent;
+  context.fill();
+  context.fillStyle = ink;
+  context.fillText(badgeText, heroX + heroWidth - badgeWidth - 13, heroY + 36);
+  context.fillStyle = card;
+  setCanvasFont(context, 42, 850);
+  context.fillText(dateLine, heroX + 36, heroY + 82);
+  context.fillStyle = "#c3c5bd";
+  setCanvasFont(context, 24, 550);
+  context.fillText(summary, heroX + 36, heroY + 150);
+  return 290;
+}
+
+function drawSessionShareBlock(context, block, y, format) {
+  const { width, padding, ink, muted, card, line, green, orange } = SHARE_STYLE;
+  const contentWidth = width - (padding * 2);
+  if (block.type === "section") {
+    context.fillStyle = green;
+    setCanvasFont(context, 17, 850);
+    context.fillText(block.kicker, padding, y + 5);
+    context.fillStyle = ink;
+    setCanvasFont(context, 34, 850);
+    context.fillText(block.title, padding, y + 30);
+    return;
+  }
+  if (block.type === "empty") {
+    context.fillStyle = muted;
+    setCanvasFont(context, 23, 500);
+    context.fillText("未记录正式动作", padding, y + 28);
+    return;
+  }
+  if (block.type === "textExercise") {
+    context.fillStyle = ink;
+    setCanvasFont(context, 27, 800);
+    drawCanvasLines(context, block.nameLines, padding, y + 8, 39);
+    const setsY = y + 20 + (block.nameLines.length * 39);
+    context.fillStyle = muted;
+    setCanvasFont(context, 24, 500);
+    drawCanvasLines(context, block.setLines, padding, setsY, 34);
+    context.strokeStyle = line;
+    context.lineWidth = 2;
+    context.beginPath();
+    context.moveTo(padding, y + block.height - 6);
+    context.lineTo(width - padding, y + block.height - 6);
+    context.stroke();
+    return;
+  }
+
+  context.fillStyle = card;
+  context.strokeStyle = line;
+  context.lineWidth = 2;
+  roundedCanvasRect(context, padding, y, contentWidth, block.height - 10, 24);
+  context.fill();
+  context.stroke();
+  const innerX = padding + 27;
+
+  if (block.type === "warmup") {
+    context.fillStyle = ink;
+    setCanvasFont(context, 24, 650);
+    drawCanvasLines(context, block.lines, innerX, y + 22, 34);
+    return;
+  }
+
+  if (block.type === "sessionNote") {
+    context.fillStyle = green;
+    setCanvasFont(context, 17, 850);
+    context.fillText("整体训练备注", innerX, y + 23);
+    context.fillStyle = muted;
+    setCanvasFont(context, 22, 500);
+    drawCanvasLines(context, block.lines, innerX, y + 58, 31);
+    return;
+  }
+
+  context.fillStyle = ink;
+  setCanvasFont(context, 30, 800);
+  drawCanvasLines(context, block.nameLines, innerX, y + 25, 39);
+  const badgeText = `${block.setCount} 组`;
+  setCanvasFont(context, 17, 800);
+  const badgeWidth = context.measureText(badgeText).width + 28;
+  roundedCanvasRect(context, width - padding - badgeWidth - 23, y + 22, badgeWidth, 36, 18);
+  context.fillStyle = "#eaf4d9";
+  context.fill();
+  context.fillStyle = "#587d1b";
+  context.fillText(badgeText, width - padding - badgeWidth - 9, y + 31);
+
+  let cursorY = y + 37 + (block.nameLines.length * 39);
+  context.fillStyle = ink;
+  setCanvasFont(context, 24, 700);
+  drawCanvasLines(context, block.setLines, innerX, cursorY, 34);
+  cursorY += (block.setLines.length * 34) + 20;
+
+  if (block.cueLines) {
+    context.strokeStyle = line;
+    context.beginPath();
+    context.moveTo(innerX, cursorY - 2);
+    context.lineTo(width - padding - 27, cursorY - 2);
+    context.stroke();
+    context.fillStyle = green;
+    setCanvasFont(context, 16, 850);
+    context.fillText("动作要点", innerX, cursorY + 15);
+    context.fillStyle = muted;
+    setCanvasFont(context, 22, 500);
+    drawCanvasLines(context, block.cueLines, innerX, cursorY + 44, 31);
+    cursorY += 48 + (block.cueLines.length * 31);
+  }
+  if (block.correctionLines) {
+    context.strokeStyle = line;
+    context.beginPath();
+    context.moveTo(innerX, cursorY - 2);
+    context.lineTo(width - padding - 27, cursorY - 2);
+    context.stroke();
+    context.fillStyle = orange;
+    setCanvasFont(context, 16, 850);
+    context.fillText("本次教练纠正", innerX, cursorY + 15);
+    context.fillStyle = muted;
+    setCanvasFont(context, 22, 500);
+    drawCanvasLines(context, block.correctionLines, innerX, cursorY + 44, 31);
+  }
+}
+
+function drawSessionShareCanvas(session, format) {
+  const canvas = $('#session-share-canvas');
+  canvas.width = SHARE_STYLE.width;
+  canvas.height = 1;
+  let context = canvas.getContext("2d");
+  const blocks = buildSessionShareBlocks(session, format, context);
+  const headerHeight = format === "text" ? 298 : 290;
+  const contentHeight = blocks.reduce((sum, block) => sum + block.height, 0);
+  canvas.height = Math.ceil(headerHeight + contentHeight + 104);
+  context = canvas.getContext("2d");
+  context.fillStyle = SHARE_STYLE.paper;
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  let y = drawSessionShareHeader(context, session, format);
+  blocks.forEach(block => {
+    drawSessionShareBlock(context, block, y, format);
+    y += block.height;
+  });
+  context.fillStyle = SHARE_STYLE.muted;
+  setCanvasFont(context, 18, 600);
+  context.fillText("FITNESS LOG · 训练记录", SHARE_STYLE.padding, canvas.height - 62);
+  context.textAlign = "right";
+  context.fillText(session.date, SHARE_STYLE.width - SHARE_STYLE.padding, canvas.height - 62);
+  context.textAlign = "left";
+  return canvas;
+}
+
+function renderSessionSharePreview() {
+  const session = findSession(shareSessionId);
+  if (!session) return;
+  const canvas = drawSessionShareCanvas(session, shareFormat);
+  const button = $('#save-session-share');
+  const token = ++shareRenderToken;
+  shareImageBlob = null;
+  button.disabled = true;
+  button.textContent = "正在生成…";
+  canvas.toBlob(blob => {
+    if (token !== shareRenderToken) return;
+    if (!blob) {
+      button.textContent = "生成失败，请重试";
+      return;
+    }
+    shareImageBlob = blob;
+    button.disabled = false;
+    button.textContent = navigator.share ? "保存 / 分享图片" : "下载 PNG 图片";
+  }, "image/png");
+}
+
+function openSessionShareDialog(sessionId) {
+  const session = findSession(sessionId);
+  if (!session) return;
+  shareSessionId = session.id;
+  shareFormat = "detailed";
+  $$('.share-format-card').forEach(button => {
+    const active = button.dataset.shareFormat === shareFormat;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-checked", String(active));
+  });
+  $('#session-share-dialog').showModal();
+  renderSessionSharePreview();
+}
+
+function saveSessionShareImage() {
+  const session = findSession(shareSessionId);
+  if (!session || !shareImageBlob) {
+    showToast("图片还在生成，请稍等");
+    return;
+  }
+  const suffix = { detailed: "detailed", compact: "compact", text: "text" }[shareFormat];
+  const fileName = `fitness-log-training-${session.date}-${suffix}.png`;
+  const file = new File([shareImageBlob], fileName, { type: "image/png" });
+  if (navigator.share && navigator.canShare?.({ files: [file] })) {
+    navigator.share({ files: [file], title: `${formatShortDate(session.date)} 训练记录` })
+      .then(() => showToast("训练图片已分享"))
+      .catch(error => {
+        if (error.name !== "AbortError") {
+          console.warn("系统分享失败，改用下载", error);
+          downloadSessionShareImage(fileName);
+        }
+      });
+    return;
+  }
+  downloadSessionShareImage(fileName);
+}
+
+function downloadSessionShareImage(fileName) {
+  const url = URL.createObjectURL(shareImageBlob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showToast("训练图片已下载");
 }
 
 function recentDates() {
@@ -894,6 +1284,19 @@ function setupEvents() {
     closeDialog($('#session-detail-dialog'));
     openSessionDialog(session);
   });
+  $('#share-session-from-detail').addEventListener("click", event => openSessionShareDialog(event.currentTarget.dataset.sessionId));
+  $('.share-format-options').addEventListener("click", event => {
+    const button = event.target.closest('[data-share-format]');
+    if (!button || button.dataset.shareFormat === shareFormat) return;
+    shareFormat = button.dataset.shareFormat;
+    $$('.share-format-card').forEach(item => {
+      const active = item === button;
+      item.classList.toggle("is-active", active);
+      item.setAttribute("aria-checked", String(active));
+    });
+    renderSessionSharePreview();
+  });
+  $('#save-session-share').addEventListener("click", saveSessionShareImage);
   $('#hydration-dialog').addEventListener("click", event => {
     const quickAdd = event.target.closest('[data-add-water]');
     if (quickAdd) addHydrationRecord(quickAdd.dataset.addWater);

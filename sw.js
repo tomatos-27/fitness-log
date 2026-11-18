@@ -1,10 +1,10 @@
-const CACHE_NAME = 'fitness-log-shell-v0.1.2-v6';
+const CACHE_NAME = 'fitness-log-shell-v0.1.2-v7';
 const APP_SHELL = [
   './',
   './index.html',
-  './styles.css?v=0.1.2-4',
-  './app.js?v=0.1.2-4',
-  './data.js?v=0.1.2-4',
+  './styles.css?v=0.1.2-5',
+  './app.js?v=0.1.2-5',
+  './data.js?v=0.1.2-5',
   './manifest.webmanifest',
   './icons/icon.svg',
   './icons/icon-180.png',
